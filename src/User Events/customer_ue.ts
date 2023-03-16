@@ -75,4 +75,9 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (
     title: 'RESTLET RESPONSE',
     details: restletResponse,
   });
+
+  log.debug({
+    title: 'RESTLET RESPONSE BODY',
+    details: JSON.parse(restletResponse.body),
+  });
 };
