@@ -5,8 +5,6 @@
 
 import { EntryPoints } from 'N/types';
 import * as https from 'N/https';
-import * as crypto from 'N/crypto';
-import * as encode from 'N/encode';
 import * as runtime from 'N/runtime';
 import * as log from 'N/log';
 
@@ -15,7 +13,7 @@ type ContextType = {
   salesRep: string;
 };
 
-export const post: EntryPoints.RESTlet.post = (context: ContextType) => {
+export const post: EntryPoints.RESTlet.post = async (context: ContextType) => {
   log.debug({
     title: 'CONTEXT POST',
     details: context,
@@ -36,75 +34,251 @@ export const post: EntryPoints.RESTlet.post = (context: ContextType) => {
   // post to server
   // TODO: create lambda and move url to a script param
   // const url = runtime.getCurrentScript().getParameter({ name: '' });
-  const url = 'https://d071-137-25-251-176.ngrok.io/test';
 
   log.debug({
     title: 'SENDING POST REQUEST TO SERVER',
     details: { customerEmail, salesRep },
   });
 
+  // send request
   try {
-    // create hmac
-    const mySecret = 'custsecret_sp_shopify_sales_rep_update'; //secret id take from secrets management page
-
-    const body = JSON.stringify({ customerEmail, salesRep });
-    log.debug({
-      title: 'INPUT STRING',
-      details: body,
-    });
-
-    const sKey = crypto.createSecretKey({
-      secret: mySecret,
-      encoding: encode.Encoding.UTF_8,
-    });
-
-    const hmacSha256 = crypto.createHmac({
-      // algorithm: 'SHA512',
-      algorithm: crypto.HashAlg.SHA256,
-      key: sKey,
-    });
-
-    hmacSha256.update({
-      input: body, // input string
-      inputEncoding: encode.Encoding.UTF_8,
-    });
-
-    const digestSha256 = hmacSha256.digest({
-      outputEncoding: encode.Encoding.BASE_64,
-    });
-
-    // post request
-    const response = https.post({
-      url: url,
-      body: body,
-      headers: {
-        'Content-Type': 'application/json',
-        // TODO: agree on header name
-        'Some-Custom-Header': digestSha256,
-      },
-    });
-
-    log.debug({
-      title: 'RESPONSE',
-      details: response,
-    });
-
-    const json = JSON.parse(response.body);
-
-    log.debug({
-      title: 'JSON RESPONSE',
-      details: json,
-    });
-
-    return json;
+    const response = await updateSalesRep(customerEmail, salesRep);
+    return {
+      statusCode: 200,
+      body: response,
+    };
   } catch (err: unknown) {
     log.debug({
-      title: 'ERROR POSTING TO SERVER',
+      title: 'ERROR UPDATING SALES REP',
+      details: err,
+    });
+    return {
+      statusCode: 500,
+      body: err,
+    };
+  }
+};
+
+function handleize(str: string) {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-$/, '')
+    .replace(/^-/, '');
+}
+
+async function shopifyAuthenticatedFetch(
+  query: string,
+  variables?: { [key: string]: any }
+) {
+  // TODO: move these to params
+  const SHOPIFY_ADMIN_TOKEN = runtime
+    .getCurrentScript()
+    .getParameter({ name: 'custscript_sp_partners_shopify_admin_tok' });
+
+  const SHOPIFY_DOMAIN = runtime
+    .getCurrentScript()
+    .getParameter({ name: 'custscript_sp_partners_shopify_domain' });
+
+  const API_VERSION = '2023-01';
+
+  const ADMIN_API_ENDPOINT = `https://${SHOPIFY_DOMAIN}.myshopify.com/admin/api/${API_VERSION}/graphql.json`;
+
+  const response = await https.post.promise({
+    url: ADMIN_API_ENDPOINT,
+    body: JSON.stringify({ query, variables }),
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Access-Token': SHOPIFY_ADMIN_TOKEN,
+    },
+  });
+
+  return response;
+}
+
+// admin api fetch
+async function getCustomer(email: string) {
+  const query = `#graphql
+    query Customers($email: String!) {
+      customers(first: 1, query: $email) {
+        edges {
+          node {
+            id
+            email
+          }
+        }
+      }
+    }
+  `;
+
+  const variables = {
+    email,
+  };
+
+  try {
+    const response = await shopifyAuthenticatedFetch(query, variables);
+
+    const { data } = JSON.parse(response.body);
+    log.debug({ title: 'CUSTOMER', details: data });
+
+    // return flat
+    log.debug({
+      title: 'CUSTOMER NODE',
+      details: data?.customers?.edges[0],
+    });
+
+    return data?.customers?.edges[0] ? data?.customers?.edges[0].node : null;
+  } catch (err: unknown) {
+    log.debug({ title: 'ERROR', details: err });
+    throw err;
+  }
+}
+
+// admin api fetch
+async function getSalesReps() {
+  const query = `#graphql
+    query {
+      metaobjects(type: "sales_rep", first: 25) {
+        edges {
+          node {
+            id
+            handle
+            email: field(key: "email") {
+              value
+            }
+            image: field(key: "image") {
+              value
+              reference {
+                ... on MediaImage {
+                  id
+                  image {
+                    url
+                    width
+                    height
+                  }
+                }
+              }
+            }
+            name: field(key: "name") {
+              value
+            }
+            phone: field(key: "phone") {
+              value
+            }
+            extension: field(key: "phone_extension") {
+              value
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const response = await shopifyAuthenticatedFetch(query);
+
+    const { data } = JSON.parse(response.body);
+    log.debug({ title: 'SALES REPS OBJECTS', details: data.metaobjects });
+    // return flat
+    return data.metaobjects.edges.map(el => el.node);
+  } catch (err: unknown) {
+    log.debug({
+      title: 'ERROR GETTING SALES REPS (META OBJECT)',
       details: err,
     });
 
-    return JSON.stringify({
-      error: err,
-    });
+    throw err;
   }
+}
+
+type SalesRepType = {
+  id: string;
+  handle: string;
+  email: {
+    value: string;
+  };
+  image: {
+    value: string;
+    reference: {
+      id: string;
+      image: {
+        url: string;
+        width: number;
+        height: number;
+      };
+    };
+  };
 };
+
+// admin api
+async function updateSalesRep(customerEmail: string, rep: string) {
+  // handleize sales rep name
+  const match = handleize(rep);
+  // admin api: get customer by email
+  const customer = await getCustomer(customerEmail);
+
+  // no customer found return error
+  if (!customer) {
+    return {
+      statusCode: 500,
+      body: 'No Customer Found!',
+    };
+  }
+  // set default sales rep
+  let salesRep = {
+    id: 'gid://shopify/Metaobject/4882504',
+    handle: 'onboarding',
+  };
+  // // storefront api: get meta objects type sales_rep
+  const salesReps = await getSalesReps();
+  // find matching sales rep
+  const found = salesReps.find((rep: SalesRepType) => rep.handle === match);
+  if (found) {
+    salesRep = found;
+  }
+  // // admin api: mutation - update sales rep
+  const query = `#graphql
+      mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          metafields {
+            key
+            namespace
+            value
+            createdAt
+            updatedAt
+          }
+          userErrors {
+            field
+            message
+            code
+          }
+        }
+      }
+    `;
+
+  const variables = {
+    metafields: [
+      {
+        key: 'sales_rep',
+        namespace: 'suavecito',
+        ownerId: customer.id,
+        type: 'mixed_reference',
+        value: salesRep.id,
+      },
+    ],
+  };
+
+  try {
+    const response = await shopifyAuthenticatedFetch(query, variables);
+
+    const json = JSON.parse(response.body);
+    return json;
+  } catch (err: unknown) {
+    console.log('Error updating sales rep.', err);
+    log.debug({
+      title: 'ERROR UPDATING SALES REP',
+      details: err,
+    });
+    throw err;
+  }
+}
