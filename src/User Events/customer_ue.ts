@@ -42,42 +42,45 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (
     details: salesRep,
   });
 
-  // TODO: handle no update needed event
-
+  log.debug({
+    title: 'UPDATE SALES REP',
+    details: oldSalesRep !== salesRep,
+  });
+  // update if true
   if (oldSalesRep !== salesRep) {
     log.debug({
-      title: 'UPDATE SALES REP',
-      details: oldSalesRep !== salesRep,
+      title: 'GETTING SALES REP',
+      details: salesRep,
+    });
+
+    // fire http request here
+    const restletResponse = https.requestRestlet({
+      method: 'POST',
+      body: JSON.stringify({
+        customerEmail,
+        salesRep,
+      }),
+      deploymentId: '1',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      // TODO: update this with RESTLet id and or pass this in as script param
+      scriptId: '1594',
+    });
+
+    log.debug({
+      title: 'RESTLET RESPONSE',
+      details: restletResponse,
+    });
+
+    log.debug({
+      title: 'RESTLET RESPONSE BODY',
+      details: JSON.parse(restletResponse.body),
+    });
+  } else {
+    log.debug({
+      title: 'NO SALES REP UPDATE NEEDED',
+      details: { oldSalesRep, salesRep },
     });
   }
-
-  log.debug({
-    title: 'GETTING SALES REP',
-    details: salesRep,
-  });
-
-  // fire http request here
-  const restletResponse = https.requestRestlet({
-    method: 'POST',
-    body: JSON.stringify({
-      customerEmail,
-      salesRep,
-    }),
-    deploymentId: '1',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    // TODO: update this with RESTLet id and or pass this in as script param
-    scriptId: '1594',
-  });
-
-  log.debug({
-    title: 'RESTLET RESPONSE',
-    details: restletResponse,
-  });
-
-  log.debug({
-    title: 'RESTLET RESPONSE BODY',
-    details: JSON.parse(restletResponse.body),
-  });
 };
