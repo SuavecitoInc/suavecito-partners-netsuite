@@ -208,6 +208,12 @@ type SalesRepType = {
       };
     };
   };
+  phone: {
+    value: string;
+  };
+  extension?: {
+    value: string;
+  };
 };
 
 // admin api
@@ -224,13 +230,18 @@ async function updateSalesRep(customerEmail: string, rep: string) {
       body: 'No Customer Found!',
     };
   }
-  // set default sales rep
-  let salesRep = {
-    id: 'gid://shopify/Metaobject/4882504',
-    handle: 'onboarding',
-  };
-  // // storefront api: get meta objects type sales_rep
+
   const salesReps = await getSalesReps();
+
+  // set default sales rep
+  // let salesRep = {
+  //   id: 'gid://shopify/Metaobject/4882504',
+  //   handle: 'onboarding',
+  // };
+  let salesRep = salesReps.find(
+    (rep: SalesRepType) => rep.handle === 'onboarding'
+  );
+  // // storefront api: get meta objects type sales_rep
   // find matching sales rep
   const found = salesReps.find((rep: SalesRepType) => rep.handle === match);
   if (found) {
