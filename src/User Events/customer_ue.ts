@@ -7,10 +7,14 @@
 import { EntryPoints } from 'N/types';
 import * as https from 'N/https';
 import * as log from 'N/log';
+import * as runtime from 'N/runtime';
 
 export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (
   context: EntryPoints.UserEvent.afterSubmitContext
 ) => {
+  const RESTLET_SCRIPT_ID = runtime
+    .getCurrentScript()
+    .getParameter({ name: 'custscript_sp_partners_script_id' }) as string;
   // do something
   const oldRecord = context.oldRecord;
   const oldSalesRep = oldRecord.getText({
@@ -60,12 +64,13 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (
         customerEmail,
         salesRep,
       }),
-      deploymentId: '1',
+      deploymentId: '2',
       headers: {
         'Content-Type': 'application/json',
       },
       // TODO: update this with RESTLet id and or pass this in as script param
-      scriptId: '1594',
+      // deployment script external url
+      scriptId: RESTLET_SCRIPT_ID, // 1718
     });
 
     log.debug({

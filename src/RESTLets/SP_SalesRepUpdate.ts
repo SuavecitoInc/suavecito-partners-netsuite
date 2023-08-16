@@ -19,7 +19,6 @@ export const post: EntryPoints.RESTlet.post = async (context: ContextType) => {
     details: context,
   });
 
-  // const body = JSON.parse(context);
   const body = context;
 
   const customerEmail = body.customerEmail;
@@ -30,10 +29,6 @@ export const post: EntryPoints.RESTlet.post = async (context: ContextType) => {
       error: 'No customer email provided',
     });
   }
-
-  // post to server
-  // TODO: create lambda and move url to a script param
-  // const url = runtime.getCurrentScript().getParameter({ name: '' });
 
   log.debug({
     title: 'SENDING POST REQUEST TO SERVER',
@@ -74,13 +69,15 @@ async function shopifyAuthenticatedFetch(
   // TODO: move these to params
   const SHOPIFY_ADMIN_TOKEN = runtime
     .getCurrentScript()
-    .getParameter({ name: 'custscript_sp_partners_shopify_admin_tok' });
+    .getParameter({ name: 'custscript_sp_partners_admin_token' });
 
   const SHOPIFY_DOMAIN = runtime
     .getCurrentScript()
-    .getParameter({ name: 'custscript_sp_partners_shopify_domain' });
+    .getParameter({ name: 'custscript_sp_partners_store_name' });
 
-  const API_VERSION = '2023-01';
+  const API_VERSION = runtime
+    .getCurrentScript()
+    .getParameter({ name: 'custscript_sp_partners_store_api_version' });
 
   const ADMIN_API_ENDPOINT = `https://${SHOPIFY_DOMAIN}.myshopify.com/admin/api/${API_VERSION}/graphql.json`;
 
@@ -234,10 +231,6 @@ async function updateSalesRep(customerEmail: string, rep: string) {
   const salesReps = await getSalesReps();
 
   // set default sales rep
-  // let salesRep = {
-  //   id: 'gid://shopify/Metaobject/4882504',
-  //   handle: 'onboarding',
-  // };
   let salesRep = salesReps.find(
     (rep: SalesRepType) => rep.handle === 'onboarding'
   );
@@ -273,7 +266,7 @@ async function updateSalesRep(customerEmail: string, rep: string) {
         key: 'sales_rep',
         namespace: 'suavecito',
         ownerId: customer.id,
-        type: 'mixed_reference',
+        type: 'metaobject_reference',
         value: salesRep.id,
       },
     ],
