@@ -15,6 +15,10 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (
   const RESTLET_SCRIPT_ID = runtime
     .getCurrentScript()
     .getParameter({ name: 'custscript_sp_partners_script_id' }) as string;
+
+  const RESTLET_DEPLOY_ID = runtime
+    .getCurrentScript()
+    .getParameter({ name: 'custscript_sp_partners_deploy_id' }) as string;
   // do something
   const oldRecord = context.oldRecord;
   const oldSalesRep = oldRecord.getText({
@@ -64,7 +68,7 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (
         customerEmail,
         salesRep,
       }),
-      deploymentId: '2',
+      deploymentId: RESTLET_DEPLOY_ID, // 2
       headers: {
         'Content-Type': 'application/json',
       },
