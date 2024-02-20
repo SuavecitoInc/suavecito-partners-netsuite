@@ -42,10 +42,10 @@ export const post: EntryPoints.RESTlet.post = async (context: ContextType) => {
       statusCode: 200,
       body: response,
     };
-  } catch (err: unknown) {
-    log.debug({
+  } catch (err: any) {
+    log.error({
       title: 'ERROR UPDATING SALES REP',
-      details: err,
+      details: err.message,
     });
     return {
       statusCode: 500,
@@ -115,7 +115,18 @@ async function getCustomer(email: string) {
   try {
     const response = await shopifyAuthenticatedFetch(query, variables);
 
-    const { data } = JSON.parse(response.body);
+    const responseBody = JSON.parse(response.body);
+    log.debug({
+      title: 'RESPONSE BODY',
+      details: responseBody,
+    });
+
+    const { data, errors } = responseBody;
+
+    if (errors && errors.length > 0) {
+      throw new Error(errors);
+    }
+
     log.debug({ title: 'CUSTOMER', details: data });
 
     // return flat
@@ -125,9 +136,9 @@ async function getCustomer(email: string) {
     });
 
     return data?.customers?.edges[0] ? data?.customers?.edges[0].node : null;
-  } catch (err: unknown) {
-    log.debug({ title: 'ERROR', details: err });
-    throw err;
+  } catch (err: any) {
+    log.error({ title: 'ERROR', details: err.message });
+    throw new Error(err.message);
   }
 }
 
@@ -174,17 +185,20 @@ async function getSalesReps() {
   try {
     const response = await shopifyAuthenticatedFetch(query);
 
-    const { data } = JSON.parse(response.body);
+    const { data, errors } = JSON.parse(response.body);
+
+    if (errors && errors.length > 0) {
+      throw new Error(errors);
+    }
     log.debug({ title: 'SALES REPS OBJECTS', details: data.metaobjects });
     // return flat
     return data.metaobjects.edges.map(el => el.node);
-  } catch (err: unknown) {
-    log.debug({
+  } catch (err: any) {
+    log.error({
       title: 'ERROR GETTING SALES REPS (META OBJECT)',
       details: err,
     });
-
-    throw err;
+    throw new Error(err.message);
   }
 }
 
@@ -277,12 +291,12 @@ async function updateSalesRep(customerEmail: string, rep: string) {
 
     const json = JSON.parse(response.body);
     return json;
-  } catch (err: unknown) {
+  } catch (err: any) {
     console.log('Error updating sales rep.', err);
-    log.debug({
+    log.error({
       title: 'ERROR UPDATING SALES REP',
-      details: err,
+      details: err.message,
     });
-    throw err;
+    throw new Error(err.message as string);
   }
 }

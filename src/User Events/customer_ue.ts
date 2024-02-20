@@ -19,77 +19,104 @@ export const afterSubmit: EntryPoints.UserEvent.afterSubmit = (
   const RESTLET_DEPLOY_ID = runtime
     .getCurrentScript()
     .getParameter({ name: 'custscript_sp_partners_deploy_id' }) as string;
+
   // do something
-  const oldRecord = context.oldRecord;
-  const oldSalesRep = oldRecord.getText({
-    fieldId: 'salesrep',
-  });
+  try {
+    const oldRecord = context.oldRecord;
 
-  log.debug({
-    title: 'OLD SALES REP',
-    details: oldSalesRep,
-  });
+    if (!oldRecord) {
+      log.debug({
+        title: 'Could not get oldRecord',
+        details: JSON.stringify(oldRecord),
+      });
 
-  const currentRecord = context.newRecord;
+      return;
+    }
 
-  const customerEmail = currentRecord.getValue({
-    fieldId: 'email',
-  });
+    const oldSalesRep = oldRecord.getText({
+      fieldId: 'salesrep',
+    });
 
-  log.debug({
-    title: 'CUSTOMER EMAIL',
-    details: customerEmail,
-  });
-
-  const salesRep = currentRecord.getText({
-    fieldId: 'salesrep',
-  });
-
-  log.debug({
-    title: 'NEW SALES REP',
-    details: salesRep,
-  });
-
-  log.debug({
-    title: 'UPDATE SALES REP',
-    details: oldSalesRep !== salesRep,
-  });
-  // update if true
-  if (oldSalesRep !== salesRep) {
     log.debug({
-      title: 'GETTING SALES REP',
+      title: 'OLD SALES REP',
+      details: oldSalesRep,
+    });
+
+    const currentRecord = context.newRecord;
+
+    if (!currentRecord) {
+      log.debug({
+        title: 'Could not get currentRecord',
+        details: JSON.stringify(currentRecord),
+      });
+
+      return;
+    }
+
+    const customerEmail = currentRecord.getValue({
+      fieldId: 'email',
+    });
+
+    log.debug({
+      title: 'CUSTOMER EMAIL',
+      details: customerEmail,
+    });
+
+    const salesRep = currentRecord.getText({
+      fieldId: 'salesrep',
+    });
+
+    log.debug({
+      title: 'NEW SALES REP',
       details: salesRep,
     });
 
-    // fire http request here
-    const restletResponse = https.requestRestlet({
-      method: 'POST',
-      body: JSON.stringify({
-        customerEmail,
-        salesRep,
-      }),
-      deploymentId: RESTLET_DEPLOY_ID, // 2
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      // TODO: update this with RESTLet id and or pass this in as script param
-      // deployment script external url
-      scriptId: RESTLET_SCRIPT_ID, // 1718
+    log.debug({
+      title: 'UPDATE SALES REP',
+      details: oldSalesRep !== salesRep,
     });
+    // update if true
+    if (oldSalesRep !== salesRep) {
+      log.debug({
+        title: 'GETTING SALES REP',
+        details: salesRep,
+      });
 
-    log.debug({
-      title: 'RESTLET RESPONSE',
-      details: restletResponse,
-    });
+      // fire http request here
+      const restletResponse = https.requestRestlet({
+        method: 'POST',
+        body: JSON.stringify({
+          customerEmail,
+          salesRep,
+        }),
+        deploymentId: RESTLET_DEPLOY_ID, // 2
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // TODO: update this with RESTLet id and or pass this in as script param
+        // deployment script external url
+        scriptId: RESTLET_SCRIPT_ID, // 1718
+      });
 
-    log.debug({
-      title: 'RESTLET RESPONSE BODY',
-      details: JSON.parse(restletResponse.body),
-    });
-  } else {
-    log.debug({
-      title: 'NO SALES REP UPDATE NEEDED',
-      details: { oldSalesRep, salesRep },
+      log.debug({
+        title: 'RESTLET RESPONSE',
+        details: restletResponse,
+      });
+
+      log.debug({
+        title: 'RESTLET RESPONSE BODY',
+        details: JSON.parse(restletResponse.body),
+      });
+    } else {
+      log.debug({
+        title: 'NO SALES REP UPDATE NEEDED',
+        details: { oldSalesRep, salesRep },
+      });
+    }
+  } catch (error: any) {
+    log.error({
+      title: 'Something went wrong',
+      details: error,
     });
   }
 };
