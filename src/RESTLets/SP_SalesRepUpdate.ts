@@ -13,6 +13,12 @@ type ContextType = {
   salesRep: string;
 };
 
+type ShopifyCustomer = {
+  id: string;
+  email: string;
+  tags: string[];
+};
+
 export const post: EntryPoints.RESTlet.post = async (context: ContextType) => {
   log.debug({
     title: 'CONTEXT POST',
@@ -94,7 +100,7 @@ async function shopifyAuthenticatedFetch(
 }
 
 // admin api fetch
-async function getCustomer(email: string) {
+async function getCustomer(email: string): Promise<ShopifyCustomer | null> {
   const query = `#graphql
     query Customers($email: String!) {
       customers(first: 1, query: $email) {
@@ -102,6 +108,7 @@ async function getCustomer(email: string) {
           node {
             id
             email
+            tags
           }
         }
       }
@@ -202,6 +209,38 @@ async function getSalesReps() {
   }
 }
 
+const removeTags = async (customerId: string, tags: string[]) => {
+  const query = `#graphql
+    mutation RemoveTags($tags: [String!]!, $customerId: ID!) {
+      tagsRemove(tags: $tags, id: $customerId) {
+        node {
+          id
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const variables = {
+    tags,
+    customerId,
+  };
+
+  try {
+    const response = await shopifyAuthenticatedFetch(query, variables);
+    return response;
+  } catch (err: any) {
+    log.error({
+      title: 'ERROR REMOVING TAGS',
+      details: err.message,
+    });
+    throw new Error(err.message);
+  }
+};
+
 type SalesRepType = {
   id: string;
   handle: string;
@@ -229,8 +268,7 @@ type SalesRepType = {
 
 // admin api
 async function updateSalesRep(customerEmail: string, rep: string) {
-  // handleize sales rep name
-  const match = handleize(rep);
+  const match = rep;
   // admin api: get customer by email
   const customer = await getCustomer(customerEmail);
 
@@ -242,6 +280,21 @@ async function updateSalesRep(customerEmail: string, rep: string) {
     };
   }
 
+  // get tag to remove if any
+  const tags = customer.tags;
+  // find tag with sales_rep
+  const salesRepTagToRemove = tags.filter(tag => tag.includes('sales_rep:'));
+
+  log.debug({
+    title: 'SALES REP TAG TO REMOVE',
+    details: salesRepTagToRemove,
+  });
+
+  if (salesRepTagToRemove.length > 0) {
+    // remove sales rep tag
+    await removeTags(customer.id, salesRepTagToRemove);
+  }
+
   const salesReps = await getSalesReps();
 
   // set default sales rep
@@ -250,13 +303,15 @@ async function updateSalesRep(customerEmail: string, rep: string) {
   );
   // // storefront api: get meta objects type sales_rep
   // find matching sales rep
-  const found = salesReps.find((rep: SalesRepType) => rep.handle === match);
+  const found = salesReps.find(
+    (rep: SalesRepType) => rep.email.value === match
+  );
   if (found) {
     salesRep = found;
   }
   // // admin api: mutation - update sales rep
   const query = `#graphql
-      mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+      mutation UpdateSalesRep($metafields: [MetafieldsSetInput!]!, $customerId: ID!, $tags: [String!]!) {
         metafieldsSet(metafields: $metafields) {
           metafields {
             key
@@ -269,6 +324,15 @@ async function updateSalesRep(customerEmail: string, rep: string) {
             field
             message
             code
+          }
+        }
+        tagsAdd(tags: $tags, id: $customerId) {
+          node {
+            id
+          }
+          userErrors {
+            field
+            message
           }
         }
       }
@@ -284,6 +348,8 @@ async function updateSalesRep(customerEmail: string, rep: string) {
         value: salesRep.id,
       },
     ],
+    customerId: customer.id,
+    tags: [salesRep.name.value, `sales_rep:${salesRep.name.value}`],
   };
 
   try {
