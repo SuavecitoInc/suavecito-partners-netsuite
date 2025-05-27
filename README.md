@@ -21,24 +21,18 @@ After a customer submit it will look at the `sales rep`, if it has changed it wi
 
 <table>
   <tr>
-    <th>Shopify Admin Token</th>
-    <td>The Shopify Admin Token for Suavecito Partners</td>
+    <th>Secret ID</th>
+    <td>The id of the NetSuite API Secret, this is used to source the value.</td>
   </tr>
   <tr>
-    <th>Shopify Store Name</th>
-    <td>The Shopify store name ex: suavecito-wholesale</td>
-  </tr>
-  <tr>
-    <th>Shopify API VERSION</th>
-    <td>The Shopify Admin API Version ex: 2023-07</td>
+    <th>Endpoint</th>
+    <td>The AWS Lambda endpoint URL</td>
   </tr>
 </table>
 
 ## Handle Shopify API Externally
 
-> customer_ue.ts -> SP_SalesRepUpdate_External.ts
-
-After a customer submit it will look at the `sales rep`, if it has changed it will fire a request to the `Sales Rep Update RESTLet` with the customer's `email` and `sales rep`. This will fire an http Request to a Server / Lambda that will handle the sales rep update in Shopify via the `Shopify GraphQL API`.
+After a customer submit it will look at the `sales rep`, if it has changed it will fire a request to the `Sales Rep Update RESTLet` with the customer's `email` and `sales rep email`. This will fire an http Request to a Server / Lambda that will handle the sales rep update in Shopify via the `Shopify GraphQL API`.
 
 ### External Verification
 
@@ -53,7 +47,7 @@ function verify(
   const inputString = JSON.stringify(req.body);
   // key will be
   const key = process.env.SECRET_KEY;
-  const hmac = req.get('some-custom-header');
+  const hmac = req.get('X-Suavecito-Hmac-256');
   const hash = crypto
     .createHmac('sha256', key)
     .update(inputString, 'utf8')
