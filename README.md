@@ -4,6 +4,36 @@
 
 After a customer submit it will look at the `sales rep`, if it has changed it will fire a request to the `Sales Rep Update RESTLet` with the customer's `email` and `sales rep`. This will fire a request to update the sales rep in Shopify via the `Shopify GraphQL API`.
 
+## User Event Script Parameters
+
+<table>
+  <tr>
+    <th>RESTLet Script ID</th>
+    <td>The RESTLet Script ID. This can be found by looking at the RESTLets external url.</td>
+  </tr>
+    <tr>
+    <th>RESTLet Deploy ID</th>
+    <td>The RESTLet Script ID. This can be found by looking at the RESTLets external url.</td>
+  </tr>
+</table>
+
+## RESTLet Script Parameters
+
+<table>
+  <tr>
+    <th>Shopify Admin Token</th>
+    <td>The Shopify Admin Token for Suavecito Partners</td>
+  </tr>
+  <tr>
+    <th>Shopify Store Name</th>
+    <td>The Shopify store name ex: suavecito-wholesale</td>
+  </tr>
+  <tr>
+    <th>Shopify API VERSION</th>
+    <td>The Shopify Admin API Version ex: 2023-07</td>
+  </tr>
+</table>
+
 ## Handle Shopify API Externally
 
 > customer_ue.ts -> SP_SalesRepUpdate_External.ts
